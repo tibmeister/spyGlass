@@ -101,7 +101,7 @@ services:
     environment:
       - "ALERTMANAGER_URIS=default:http://alertmanager:9093"
     ports:
-      - 8080:8080
+      - 9080:8080
     deploy:
       mode: replicated
       replicas: 1
