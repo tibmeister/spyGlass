@@ -37,7 +37,7 @@ services:
           memory: 64M
 
   grafana:
-    image: tibmeister/spyGlass-grafana
+    image: tibmeister/spyglass-grafana
     networks:
       - net
     environment:
@@ -66,7 +66,7 @@ services:
           memory: 64M
 
   alertmanager:
-    image: tibmeister/spyGlass-am
+    image: tibmeister/spyglass-am
     networks:
       - net
     environment:
@@ -101,7 +101,7 @@ services:
       replicas: 1
 
   node-exporter:
-    image: tibmeister/spyGlass-node-exporter
+    image: tibmeister/spyglass-node-exporter
     networks:
       - net
     environment:
@@ -129,7 +129,7 @@ services:
           memory: 64M
 
   prometheus:
-    image: tibmeister/spyGlass-prometheus
+    image: tibmeister/spyglass-prometheus
     networks:
       - net
     command:
