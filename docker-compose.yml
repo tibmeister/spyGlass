@@ -137,7 +137,9 @@ services:
   graphite_rrd:
     image: graphiteapp/graphite-statsd
     volumes:
-      - spyGlass_rrd/rrd:/opt/graphite/storage/rrd
+      - type: bind
+        source: ./spyGlass_rrd/rrd
+        target: /opt/graphite/storage/rrd
 
   prometheus:
     image: tibmeister/spyglass-prometheus
