@@ -136,6 +136,12 @@ services:
 
   graphite_rrd:
     image: graphiteapp/graphite-statsd
+    ports:
+      - 9180:80
+      - 9181:81
+      - 8125:8125/udp
+      - 8126:8126
+      - 2003:2003
     volumes:
       - type: bind
         source: ./spyGlass_rrd/rrd
