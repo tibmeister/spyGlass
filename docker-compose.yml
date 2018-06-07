@@ -134,6 +134,11 @@ services:
         reservations:
           memory: 64M
 
+  graphite_rrd:
+    image: graphiteapp/graphite-statsd
+    volumes:
+      - spyGlass_rrd/rrd:/opt/graphite/storage/rrd
+
   prometheus:
     image: tibmeister/spyglass-prometheus
     networks:
