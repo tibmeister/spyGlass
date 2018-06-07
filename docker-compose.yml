@@ -136,6 +136,8 @@ services:
 
   graphite_rrd:
     image: graphiteapp/graphite-statsd
+    networks:
+      - net
     ports:
       - 9180:80
       - 9181:81
