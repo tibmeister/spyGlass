@@ -52,7 +52,7 @@ services:
       #- GF_SMTP_USER=${GF_SMTP_USER}
       #- GF_SMTP_PASSWORD=${GF_SMTP_PASSWORD}
     volumes:
-      - spyGlass_grafana:/var/lib/grafana
+      - grafana:/var/lib/grafana
     deploy:
       mode: replicated
       replicas: 1
@@ -77,7 +77,7 @@ services:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
     volumes:
-      - spyGlass_am:/alertmanager
+      - alertmanager:/alertmanager
     deploy:
       mode: replicated
       replicas: 1
@@ -139,7 +139,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention=24h'
     volumes:
-      - spyGlass-prometheus:/prometheus
+      - prometheus:/prometheus
     configs:
       - source: node_rules
         target: /etc/prometheus/swarm_node.rules.yml
