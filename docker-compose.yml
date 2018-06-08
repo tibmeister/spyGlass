@@ -37,7 +37,7 @@ services:
           memory: 64M
 
   grafana:
-    image: tibmeister/spyglass-grafana
+    image: tibmeister/spyglass_grafana
     networks:
       - net
     environment:
@@ -68,7 +68,7 @@ services:
           memory: 64M
 
   alertmanager:
-    image: tibmeister/spyglass-am
+    image: tibmeister/spyglass_am
     networks:
       - net
     environment:
