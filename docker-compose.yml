@@ -146,7 +146,7 @@ services:
       - 2003:2003
     volumes:
       - type: bind
-        source: ./spyGlass_rrd/rrd
+        source: /home/ubuntu/speedtest-cli/rrd
         target: /opt/graphite/storage/rrd
 
   prometheus:
