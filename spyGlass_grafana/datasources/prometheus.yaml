@@ -11,3 +11,9 @@ datasources:
   isDefault: true
   version: 1
   editable: true
+- name: RRD
+  type: graphite
+  access: proxy
+  url: http://graphiterrd:9180
+  isDefault: false
+  editable: true
