@@ -15,3 +15,9 @@
 
 .idea/
 .DS_Store
+
+# ignore any conf files
+*.conf
+
+# Ignore any rrd files
+*.rrd
