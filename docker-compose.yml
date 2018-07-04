@@ -16,8 +16,8 @@ configs:
     file: ./spyGlass-prometheus/rules/swarm_node.rules.yml
   task_rules:
     file: ./spyGlass-prometheus/rules/swarm_task.rules.yml
-  telegraf:
-    file: ./spyGlass-telegraf/telegraf.conf
+#  telegraf:
+#    file: ./spyGlass-telegraf/telegraf.conf
 
 services:
   cadvisor:
@@ -176,13 +176,16 @@ services:
     image: nuntz/telegraf-snmp
     networks:
       - net
-    configs:
-      - source: telegraf
-        target: /etc/telegraf/telegraf.conf
+#    configs:
+#      - source: telegraf
+#        target: /etc/telegraf/telegraf.conf
     volumes:
       - type: bind
         source: ./spyGlass-telegraf/mibs
         target: /root/.snmp/mibs
+      - type: bind
+        source: ./spyGlass-telegraf/telegraf
+        target: /etc/telegraf
 
   prometheus:
     image: tibmeister/spyglass-prometheus
