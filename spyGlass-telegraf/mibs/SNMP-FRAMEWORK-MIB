@@ -1,0 +1,11 @@
+--2018-07-04 23:25:55--  http://net-snmp.sourceforge.net/docs/mibs/SNMP-FRAMEWORK-MIB.txt
+Resolving net-snmp.sourceforge.net (net-snmp.sourceforge.net)... 216.105.38.10
+Connecting to net-snmp.sourceforge.net (net-snmp.sourceforge.net)|216.105.38.10|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 22342 (22K) [text/plain]
+Saving to: ‘SNMP-FRAMEWORK-MIB.txt’
+
+     0K .......... .......... .                               100% 64.4K=0.3s
+
+2018-07-04 23:25:57 (64.4 KB/s) - ‘SNMP-FRAMEWORK-MIB.txt’ saved [22342/22342]
+
