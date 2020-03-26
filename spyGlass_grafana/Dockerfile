@@ -8,3 +8,5 @@ COPY dashboards /etc/grafana/dashboards/
 ENV GF_SECURITY_ADMIN_PASSWORD=admin \
     GF_SECURITY_ADMIN_USER=admin \
     GF_PATHS_PROVISIONING=/etc/grafana/provisioning/
+
+RUN grafana-cli plugins install briangann-gauge-panel && grafana-cli plugins install michaeldmoore-multistat-panel
