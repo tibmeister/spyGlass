@@ -43,6 +43,7 @@ Services:
 
 * prometheus (metrics database) `http://<swarm-ip>:9090`
 * grafana (visualize metrics) `http://<swarm-ip>:3000`
+* grafana-image-renderer (render images for email notification)
 * node-exporter (host metrics collector)
 * cadvisor (containers metrics collector)
 * dockerd-exporter (Docker daemon metrics collector, requires Docker experimental metrics-addr to be enabled)
