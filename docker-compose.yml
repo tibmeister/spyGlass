@@ -67,15 +67,17 @@ services:
       - GF_SMTP_ENABLED=true
       - GF_SMTP_FROM_ADDRESS=noreply@tiberiansun.us
       - GF_SMTP_FROM_NAME=Grafana
-      - GF_SMTP_HOST=mail.tiberiansun.us:465
-      - GF_SMTP_USER=jody.whitlock@tiberiansun.us
-      - GF_SMTP_PASSWORD=${GF_SMTP_PASS}
+      - GF_SMTP_HOST__FILE=/run/secrets/GF_SMTP_HOST
+      - GF_SMTP_USER__FILE=/run/secrets/GF_SMTP_USER
+      - GF_SMTP_PASSWORD__FILE=/run/secrets/GF_SMTP_PASS
     volumes:
       - /nfs/swarm/spyGlassData/grafana:/var/lib/grafana
       #- "/nfs/swarm/LetsEncrypt/cheron.tiberiansun.us:/tmp/certs/:ro"
     ports:
       - 3000:3000
       #- 8123:8123
+    secrets:
+      - GF_SMTP_PASS
     logging:
       driver: json-file
     deploy:
