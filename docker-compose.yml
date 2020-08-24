@@ -149,7 +149,7 @@ services:
           memory: 12M
 
   graphite:
-    image: graphiteapp/graphite-statsd:1.1.6-2
+    image: graphiteapp/graphite-statsd:1.1.7-6
     networks:
       - net
     ports:
