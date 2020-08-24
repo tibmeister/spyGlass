@@ -6,10 +6,7 @@ networks:
     attachable: true
 
 volumes:
-    prometheus: {}
     alertmanager: {}
-    influxSNMP: {}
-    influx-pfSense: {}
 
 configs:
   node_rules:
@@ -37,18 +34,19 @@ services:
       resources:
         limits:
           memory: 128M
-        reservations:
-          memory: 8M
 
   grafana:
     image: tibmeister/spyglass_grafana
     networks:
       - net
     environment:
-      - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      #- GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      #- GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=natel-usgs-datasource
+      - GF_INSTALL_PLUGINS=natel-usgs-datasource,grafana-piechart-panel,briangann-gauge-panel,michaeldmoore-multistat-panel,grafana-clock-panel,flant-statusmap-panel,flant-statusmap-panel,larona-epict-panel,simpod-json-datasource,farski-blendstat-panel,blackmirror1-statusbygroup-panel,mxswat-separator-panel,grafana-worldmap-panel
+      #- GF_SERVER_PROTOCOL=https
+      #- GF_SERVER_CERT_FILE__FILE=/tmp/certs/fullchain.cer
+      #- GF_SERVER_CERT_KEY__FILE=/tmp/certs/cheron.tiberiansun.us.key
       #- GF_SERVER_ROOT_URL=${GF_SERVER_ROOT_URL:-localhost}
       #- GF_SMTP_ENABLED=${GF_SMTP_ENABLED:-false}
       #- GF_SMTP_FROM_ADDRESS=${GF_SMTP_FROM_ADDRESS:-grafana@test.com}
@@ -58,8 +56,10 @@ services:
       #- GF_SMTP_PASSWORD=${GF_SMTP_PASSWORD}
     volumes:
       - /nfs/swarm/spyGlassData/grafana:/var/lib/grafana
+      #- "/nfs/swarm/LetsEncrypt/cheron.tiberiansun.us:/tmp/certs/:ro"
     ports:
       - 3000:3000
+      #- 8123:8123
     logging:
       driver: json-file
     deploy:
@@ -71,55 +71,53 @@ services:
       resources:
         limits:
           memory: 512M
-        reservations:
-          memory: 128M
 
-  alertmanager:
-    image: tibmeister/spyglass_am
-    networks:
-      - net
-    environment:
-      - SLACK_URL=${SLACK_URL:-https://hooks.slack.com/services/TOKEN}
-      - SLACK_CHANNEL=${SLACK_CHANNEL:-general}
-      - SLACK_USER=${SLACK_USER:-alertmanager}
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
-    volumes:
-      - alertmanager:/alertmanager
-    ports:
-      - 9093:9093
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role != manager
-      resources:
-        limits:
-          memory: 12M
-        reservations:
-          memory: 8M
+#  alertmanager:
+#    image: tibmeister/spyglass_am
+#    networks:
+#      - net
+#    environment:
+#      - SLACK_URL=${SLACK_URL:-https://hooks.slack.com/services/TOKEN}
+#      - SLACK_CHANNEL=${SLACK_CHANNEL:-general}
+#      - SLACK_USER=${SLACK_USER:-alertmanager}
+#    command:
+#      - '--config.file=/etc/alertmanager/alertmanager.yml'
+#      - '--storage.path=/alertmanager'
+#    volumes:
+#      - alertmanager:/alertmanager
+#    ports:
+#      - 9093:9093
+#    deploy:
+#      mode: replicated
+#      replicas: 1
+#      placement:
+#        constraints:
+#          - node.role != manager
+#      resources:
+#        limits:
+#          memory: 12M
+#        reservations:
+#          memory: 8M
 
-  unsee:
-    image: cloudflare/unsee:v0.8.0
-    networks:
-      - net
-    environment:
-      - "ALERTMANAGER_URIS=default:http://alertmanager:9093"
-    ports:
-      - 9080:8080
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role != manager
-      resources:
-        limits:
-          memory: 12M
-        reservations:
-          memory: 8M
+#  unsee:
+#    image: cloudflare/unsee:v0.8.0
+#    networks:
+#      - net
+#    environment:
+#      - "ALERTMANAGER_URIS=default:http://alertmanager:9093"
+#    ports:
+#      - 9080:8080
+#    deploy:
+#      mode: replicated
+#      replicas: 1
+#      placement:
+#        constraints:
+#          - node.role != manager
+#      resources:
+#        limits:
+#          memory: 12M
+#        reservations:
+#          memory: 8M
 
   node-exporter:
     image: tibmeister/spyglass-node-exporter
@@ -149,8 +147,6 @@ services:
       resources:
         limits:
           memory: 12M
-        reservations:
-          memory: 8M
 
   graphite:
     image: graphiteapp/graphite-statsd:1.1.6-2
@@ -183,18 +179,41 @@ services:
       resources:
         limits:
           memory: 512M
-        reservations:
-          memory: 128M
 
+  influx-General:
+    image: influxdb:1.7.7
+    networks:
+      - net
+    environment:
+      - INFLUXDB_DB=influx-systems
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+      - INFLUXDB_UDP_ENABLED=true
+      #- INFLUXDB_RETENTION_ENABLED=true
+      #- INFLUXDB_RETENTION_CHECK_INTERVAL=1440m0s
+    volumes:
+      - /nfs/swarm/influxDB/General:/var/lib/influxdb
+    ports:
+      - 8186:8086/tcp
+      - 8186:8086/udp
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+      resources:
+        limits:
+          memory: 1024M
+      
   influx-pfSense:
     image: influxdb:1.7.7
     networks:
       - net
     environment:
-      - INFLUXDB_DB=pfSense-cheron
+      - INFLUXDB_DB=pfSense
       - INFLUXDB_HTTP_AUTH_ENABLED=false
     volumes:
-      - influx-pfSense:/var/lib/influxdb
+      - /nfs/swarm/influxDB/pfSense:/var/lib/influxdb
     ports:
       - 8084:8086
     deploy:
@@ -205,9 +224,7 @@ services:
           - node.role != manager
       resources:
         limits:
-          memory: 512M
-        reservations:
-          memory: 128M
+          memory: 1024M
 
   influxSNMP:
     image: influxdb:1.7.7
@@ -217,7 +234,7 @@ services:
       - INFLUXDB_DB=grafana
       - INFLUXDB_HTTP_AUTH_ENABLED=false
     volumes:
-      - influxSNMP:/var/lib/influxdb
+      - /nfs/swarm/influxDB/SNMP:/var/lib/influxdb
     ports:
       - 8086:8086
     deploy:
@@ -228,11 +245,9 @@ services:
           - node.role != manager
       resources:
         limits:
-          memory: 256M
-        reservations:
-          memory: 24M
+          memory: 1024M
 
-  telegraf:
+  telegrafSNMP:
     image: nuntz/telegraf-snmp
     depends_on:
       - influxSNMP
@@ -240,17 +255,30 @@ services:
       - net
     volumes:
       - type: bind
-        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegraf/mibs
+        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafSNMP/mibs
         target: /root/.snmp/mibs
       - type: bind
-        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegraf/telegraf
+        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafSNMP/telegraf
         target: /etc/telegraf
     deploy:
       resources:
         limits:
           memory: 128M
-        reservations:
-          memory: 8M
+
+  telegraf-OWM:
+    image: telegraf:1.14
+    depends_on:
+      - influx-General
+    networks:
+      - net
+    volumes:
+      - type: bind
+        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafOWM/telegraf
+        target: /etc/telegraf
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   prometheus:
     image: tibmeister/spyglass-prometheus
@@ -263,7 +291,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention=24h'
     volumes:
-      - prometheus:/prometheus
+      - /nfs/swarm/prometheus:/prometheus
     configs:
       - source: node_rules
         target: /etc/prometheus/swarm_node.rules.yml
@@ -280,23 +308,3 @@ services:
       resources:
         limits:
           memory: 1024M
-        reservations:
-          memory: 128M
-
-  covid-us:
-    image: jessestuart/covid_exporter
-    networks:
-      - net
-    ports:
-      - 9091:9090
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role == manager
-      resources:
-        limits:
-          memory: 1024M
-        reservations:
-          memory: 128M
