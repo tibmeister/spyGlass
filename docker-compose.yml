@@ -1,5 +1,9 @@
 version: "3.3"
 
+secrets:
+  GF_SMTP_PASS:
+    external: true
+
 networks:
   net:
     driver: overlay
@@ -20,12 +24,16 @@ services:
     networks:
       - net
     command: -logtostderr -docker_only
+    ports:
+      - 8780:8080
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /:/rootfs:ro
       - /var/run:/var/run
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+    depends_on:
+      - redis
     deploy:
       mode: global
       placement:
@@ -35,10 +43,18 @@ services:
         limits:
           memory: 128M
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - 6379:6379
+
   grafana:
     image: tibmeister/spyglass_grafana
     networks:
       - net
+    secrets:
+      - GF_SMTP_PASS
     environment:
       #- GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
       #- GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
@@ -48,12 +64,12 @@ services:
       #- GF_SERVER_CERT_FILE__FILE=/tmp/certs/fullchain.cer
       #- GF_SERVER_CERT_KEY__FILE=/tmp/certs/cheron.tiberiansun.us.key
       #- GF_SERVER_ROOT_URL=${GF_SERVER_ROOT_URL:-localhost}
-      #- GF_SMTP_ENABLED=${GF_SMTP_ENABLED:-false}
-      #- GF_SMTP_FROM_ADDRESS=${GF_SMTP_FROM_ADDRESS:-grafana@test.com}
-      #- GF_SMTP_FROM_NAME=${GF_SMTP_FROM_NAME:-Grafana}
-      #- GF_SMTP_HOST=${GF_SMTP_HOST:-smtp:25}
-      #- GF_SMTP_USER=${GF_SMTP_USER}
-      #- GF_SMTP_PASSWORD=${GF_SMTP_PASSWORD}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_FROM_ADDRESS=noreply@tiberiansun.us
+      - GF_SMTP_FROM_NAME=Grafana
+      - GF_SMTP_HOST=mail.tiberiansun.us:465
+      - GF_SMTP_USER=jody.whitlock@tiberiansun.us
+      - GF_SMTP_PASSWORD=${GF_SMTP_PASS}
     volumes:
       - /nfs/swarm/spyGlassData/grafana:/var/lib/grafana
       #- "/nfs/swarm/LetsEncrypt/cheron.tiberiansun.us:/tmp/certs/:ro"
@@ -193,8 +209,7 @@ services:
     volumes:
       - /nfs/swarm/influxDB/General:/var/lib/influxdb
     ports:
-      - 8186:8086/tcp
-      - 8186:8086/udp
+      - 8186:8086
     deploy:
       mode: replicated
       replicas: 1
