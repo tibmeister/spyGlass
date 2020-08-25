@@ -48,13 +48,14 @@ services:
           memory: 128M
 
   redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - 6379:6379
+    image: redis:6.0.6
+    networks:
+      - net
 
   renderer:
     image: grafana/grafana-image-renderer:latest
+    networks:
+      - net
     environment:
       - ENABLE_METRICS=true
 
@@ -68,7 +69,7 @@ services:
       #- GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
       #- GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=natel-usgs-datasource,grafana-piechart-panel,briangann-gauge-panel,michaeldmoore-multistat-panel,grafana-clock-panel,flant-statusmap-panel,flant-statusmap-panel,larona-epict-panel,simpod-json-datasource,farski-blendstat-panel,blackmirror1-statusbygroup-panel,mxswat-separator-panel,grafana-worldmap-panel
+      - GF_INSTALL_PLUGINS=natel-usgs-datasource,grafana-piechart-panel,briangann-gauge-panel,michaeldmoore-multistat-panel,grafana-clock-panel,flant-statusmap-panel,flant-statusmap-panel,larona-epict-panel,simpod-json-datasource,farski-blendstat-panel,blackmirror1-statusbygroup-panel,mxswat-separator-panel,grafana-worldmap-panel,natel-influx-admin-panel,redis-datasource
       #- GF_SERVER_PROTOCOL=https
       #- GF_SERVER_CERT_FILE__FILE=/tmp/certs/fullchain.cer
       #- GF_SERVER_CERT_KEY__FILE=/tmp/certs/cheron.tiberiansun.us.key
@@ -256,6 +257,21 @@ services:
       resources:
         limits:
           memory: 1024M
+
+  chronograf-pfSense:
+    image: chronograf:1.8.4
+    networks:
+      - net
+    environment:
+      - INFLUXDB_URL=http://influx-pfSense:8086
+    ports:
+      - 8884:8888
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
 
   influxSNMP:
     image: influxdb:1.7.7
