@@ -264,6 +264,8 @@ services:
       - net
     environment:
       - INFLUXDB_URL=http://influx-pfSense:8086
+    volumes:
+      - /nfs/swarm/chronograf:/var/lib/chronograf
     ports:
       - 8884:8888
     deploy:
