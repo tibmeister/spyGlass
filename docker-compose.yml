@@ -7,22 +7,24 @@ secrets:
     external: true
   GF_SMTP_USER:
     external: true
+  ES_PASSWORD:
+    external: true
 
 networks:
   net:
     driver: overlay
     attachable: true
 
-volumes:
-    alertmanager: {}
-
 configs:
   node_rules:
     file: /nfs/swarm/dockerfiles/spyGlass/spyGlass-prometheus/rules/swarm_node.rules.yml
   task_rules:
     file: /nfs/swarm/dockerfiles/spyGlass/spyGlass-prometheus/rules/swarm_task.rules.yml
+  dockerd_config:
+    file: /nfs/swarm/dockerfiles/spyGlass/Caddyfile
 
 services:
+## Swarm monitoring ##
   cadvisor:
     image: google/cadvisor
     networks:
@@ -36,121 +38,29 @@ services:
       - /var/run:/var/run
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-    depends_on:
-      - redis
+      - /dev/disk/:/dev/disk:ro
     deploy:
       mode: global
-      placement:
-        constraints:
-          - node.role != manager
       resources:
         limits:
           memory: 128M
 
-  redis:
-    image: redis:6.0.6
-    networks:
-      - net
-
-  renderer:
-    image: grafana/grafana-image-renderer:latest
+  dockerd-exporter:
+    image: stefanprodan/caddy
     networks:
       - net
     environment:
-      - ENABLE_METRICS=true
-
-  grafana:
-    image: tibmeister/spyglass_grafana
-    networks:
-      - net
-    secrets:
-      - GF_SMTP_PASS
-    environment:
-      #- GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
-      #- GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=natel-usgs-datasource,grafana-piechart-panel,briangann-gauge-panel,michaeldmoore-multistat-panel,grafana-clock-panel,flant-statusmap-panel,flant-statusmap-panel,larona-epict-panel,simpod-json-datasource,farski-blendstat-panel,blackmirror1-statusbygroup-panel,mxswat-separator-panel,grafana-worldmap-panel,natel-influx-admin-panel,redis-datasource
-      #- GF_SERVER_PROTOCOL=https
-      #- GF_SERVER_CERT_FILE__FILE=/tmp/certs/fullchain.cer
-      #- GF_SERVER_CERT_KEY__FILE=/tmp/certs/cheron.tiberiansun.us.key
-      #- GF_SERVER_ROOT_URL=${GF_SERVER_ROOT_URL:-localhost}
-      - GF_SMTP_ENABLED=true
-      - GF_SMTP_FROM_ADDRESS__FILE=/var/run/secrets/GF_SMTP_USER
-      - GF_SMTP_FROM_NAME=Grafana
-      - GF_SMTP_HOST__FILE=/var/run/secrets/GF_SMTP_HOST
-      - GF_SMTP_USER__FILE=/var/run/secrets/GF_SMTP_USER
-      - GF_SMTP_PASSWORD__FILE=/var/run/secrets/GF_SMTP_PASS
-      - GF_RENDERING_SERVER_URL=http://renderer:8081
-      - GF_RENDERING_CALLBACK_URL=http://grafana:3000/
-      - GF_LOG_FILTERS=rendering:debug 
-    volumes:
-      - /nfs/swarm/spyGlassData/grafana:/var/lib/grafana
-      #- "/nfs/swarm/LetsEncrypt/cheron.tiberiansun.us:/tmp/certs/:ro"
-    ports:
-      - 3000:3000
-      #- 8123:8123
-    secrets:
-      - GF_SMTP_PASS
-      - GF_SMTP_USER
-      - GF_SMTP_HOST
-    logging:
-      driver: json-file
+      - DOCKER_GWBRIDGE_IP=172.18.0.1
+    configs:
+      - source: dockerd_config
+        target: /etc/caddy/Caddyfile
     deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role != manager
+      mode: global
       resources:
         limits:
-          memory: 512M
-
-#  alertmanager:
-#    image: tibmeister/spyglass_am
-#    networks:
-#      - net
-#    environment:
-#      - SLACK_URL=${SLACK_URL:-https://hooks.slack.com/services/TOKEN}
-#      - SLACK_CHANNEL=${SLACK_CHANNEL:-general}
-#      - SLACK_USER=${SLACK_USER:-alertmanager}
-#    command:
-#      - '--config.file=/etc/alertmanager/alertmanager.yml'
-#      - '--storage.path=/alertmanager'
-#    volumes:
-#      - alertmanager:/alertmanager
-#    ports:
-#      - 9093:9093
-#    deploy:
-#      mode: replicated
-#      replicas: 1
-#      placement:
-#        constraints:
-#          - node.role != manager
-#      resources:
-#        limits:
-#          memory: 12M
-#        reservations:
-#          memory: 8M
-
-#  unsee:
-#    image: cloudflare/unsee:v0.8.0
-#    networks:
-#      - net
-#    environment:
-#      - "ALERTMANAGER_URIS=default:http://alertmanager:9093"
-#    ports:
-#      - 9080:8080
-#    deploy:
-#      mode: replicated
-#      replicas: 1
-#      placement:
-#        constraints:
-#          - node.role != manager
-#      resources:
-#        limits:
-#          memory: 12M
-#        reservations:
-#          memory: 8M
+          memory: 128M
+        reservations:
+          memory: 64M
 
   node-exporter:
     image: tibmeister/spyglass-node-exporter
@@ -174,157 +84,6 @@ services:
       - '--no-collector.ipvs'
     deploy:
       mode: global
-      placement:
-        constraints:
-          - node.role != manager
-      resources:
-        limits:
-          memory: 12M
-
-  graphite:
-    image: graphiteapp/graphite-statsd:1.1.7-6
-    networks:
-      - net
-    ports:
-      - 80:80
-      - 2003:2003
-      - 2004:2004
-      - 2023:2023
-      - 2024:2024
-      - 8125:8125/udp
-      - 8126:8126
-    volumes:
-      - type: bind
-        source: /nfs/swarm/spyGlassData/graphite/conf
-        target: /opt/graphite/conf
-      - type: bind
-        source: /nfs/swarm/spyGlassData/graphite/storage
-        target: /opt/graphite/storage
-      - type: bind
-        source: /nfs/swarm/spyGlassData/statsd/config
-        target: /opt/statsd/config
-    deploy:
-      mode: replicated
-      replicas: 1 
-      placement:
-        constraints:
-          - node.role != manager
-      resources:
-        limits:
-          memory: 512M
-
-  influx-General:
-    image: influxdb:1.7.7
-    networks:
-      - net
-    environment:
-      - INFLUXDB_DB=influx-systems
-      - INFLUXDB_HTTP_AUTH_ENABLED=false
-      - INFLUXDB_UDP_ENABLED=true
-      #- INFLUXDB_RETENTION_ENABLED=true
-      #- INFLUXDB_RETENTION_CHECK_INTERVAL=1440m0s
-    volumes:
-      - /nfs/swarm/influxDB/General:/var/lib/influxdb
-    ports:
-      - 8186:8086
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role != manager
-      resources:
-        limits:
-          memory: 1024M
-      
-  influx-pfSense:
-    image: influxdb:1.7.7
-    networks:
-      - net
-    environment:
-      - INFLUXDB_DB=pfSense
-      - INFLUXDB_HTTP_AUTH_ENABLED=false
-    volumes:
-      - /nfs/swarm/influxDB/pfSense:/var/lib/influxdb
-    ports:
-      - 8084:8086
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role != manager
-      resources:
-        limits:
-          memory: 1024M
-
-  chronograf-pfSense:
-    image: chronograf:1.8.4
-    networks:
-      - net
-    environment:
-      - INFLUXDB_URL=http://influx-pfSense:8086
-    volumes:
-      - /nfs/swarm/chronograf:/var/lib/chronograf
-    ports:
-      - 8884:8888
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role != manager
-
-  influxSNMP:
-    image: influxdb:1.7.7
-    networks:
-      - net
-    environment:
-      - INFLUXDB_DB=grafana
-      - INFLUXDB_HTTP_AUTH_ENABLED=false
-    volumes:
-      - /nfs/swarm/influxDB/SNMP:/var/lib/influxdb
-    ports:
-      - 8086:8086
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.role != manager
-      resources:
-        limits:
-          memory: 1024M
-
-  telegrafSNMP:
-    image: nuntz/telegraf-snmp
-    depends_on:
-      - influxSNMP
-    networks:
-      - net
-    volumes:
-      - type: bind
-        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafSNMP/mibs
-        target: /root/.snmp/mibs
-      - type: bind
-        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafSNMP/telegraf
-        target: /etc/telegraf
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-
-  telegraf-OWM:
-    image: telegraf:1.14
-    depends_on:
-      - influx-General
-    networks:
-      - net
-    volumes:
-      - type: bind
-        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafOWM/telegraf
-        target: /etc/telegraf
-    deploy:
       resources:
         limits:
           memory: 128M
@@ -356,4 +115,338 @@ services:
           - node.role != manager
       resources:
         limits:
-          memory: 1024M
+          memory: 2048M
+        reservations:
+          memory: 128M
+
+## User Interface  ##
+  swirl:
+    image: cuigh/swirl
+    environment:
+      - DB_TYPE=bolt
+      - DB_ADDRESS=/data/swirl
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /nfs/swarm/spyGlassData/bolt/swirl:/data/swirl
+    ports:
+      - 8001:8001
+    networks:
+      - net
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  chronograf:
+    image: chronograf:1.8.4
+    networks:
+      - net
+    volumes:
+      - /nfs/swarm/chronograf:/var/lib/chronograf
+    ports:
+      - 8884:8888
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+
+  grafana:
+    image: tibmeister/spyglass_grafana
+    networks:
+      - net
+    secrets:
+      - GF_SMTP_PASS
+    environment:
+      #- GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      #- GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,briangann-gauge-panel,michaeldmoore-multistat-panel,grafana-clock-panel,flant-statusmap-panel,flant-statusmap-panel,larona-epict-panel,simpod-json-datasource,farski-blendstat-panel,blackmirror1-statusbygroup-panel,mxswat-separator-panel,grafana-worldmap-panel,natel-influx-admin-panel,redis-datasource,ntop-ntopng-datasource,natel-usgs-datasource,natel-discrete-panel,innius-video-panel
+      #- GF_SERVER_PROTOCOL=https
+      #- GF_SERVER_CERT_FILE__FILE=/tmp/certs/fullchain.cer
+      #- GF_SERVER_CERT_KEY__FILE=/tmp/certs/cheron.tiberiansun.us.key
+      - GF_SERVER_ROOT_URL=http://cheron.tiberiansun.us:3001
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_FROM_ADDRESS__FILE=/var/run/secrets/GF_SMTP_USER
+      - GF_SMTP_FROM_NAME=Grafana
+      - GF_SMTP_HOST__FILE=/var/run/secrets/GF_SMTP_HOST
+      - GF_SMTP_USER__FILE=/var/run/secrets/GF_SMTP_USER
+      - GF_SMTP_PASSWORD__FILE=/var/run/secrets/GF_SMTP_PASS
+      - GF_RENDERING_SERVER_URL=http://renderer:8081/render
+      - GF_RENDERING_CALLBACK_URL=http://grafana:3000/
+      - GF_LOG_FILTERS=rendering:debug
+      - GF_PANELS_DISABLE_SANITIZE_HTML=true
+    volumes:
+      - /nfs/swarm/spyGlassData/grafana:/var/lib/grafana
+      #- "/nfs/swarm/LetsEncrypt/cheron.tiberiansun.us:/tmp/certs/:ro"
+    ports:
+      - 3000:3000
+      #- 8123:8123
+    secrets:
+      - GF_SMTP_PASS
+      - GF_SMTP_USER
+      - GF_SMTP_HOST
+    logging:
+      driver: json-file
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+      resources:
+        limits:
+          memory: 512M
+
+  renderer:
+    image: grafana/grafana-image-renderer:latest
+    networks:
+      - net
+    environment:
+      - ENABLE_METRICS=true
+      - IGNORE_HTTPS_ERRORS=true
+      - LOG_LEVEL=debug
+      - RENDERING_VERBOSE_LOGGING=true
+      - RENDERING_DUMPIO=true
+      - RENDERING_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-accelerated-2d-canvas,--disable-gpu,--window-size=1280x758
+      - RENDERING_MODE=default
+
+## Database systems ##
+  graphite:
+    image: graphiteapp/graphite-statsd:1.1.7-6
+    networks:
+      - net
+    ports:
+      - 80:80
+      - 2003:2003
+      - 2004:2004
+      - 2023:2023
+      - 2024:2024
+      - 8125:8125/udp
+      - 8126:8126
+    volumes:
+      - type: bind
+        source: /nfs/swarm/spyGlassData/graphite/conf
+        target: /opt/graphite/conf
+      - type: bind
+        source: /nfs/swarm/spyGlassData/graphite/storage
+        target: /opt/graphite/storage
+      - type: bind
+        source: /nfs/swarm/spyGlassData/statsd/config
+        target: /opt/statsd/config
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+      resources:
+        limits:
+          memory: 512M
+
+
+  influx-General:
+    image: influxdb:1.7.7
+    networks:
+      - net
+    environment:
+      - INFLUXDB_DB=influx-systems
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+      - INFLUXDB_UDP_ENABLED=true
+      - INFLUXDB_DATA_MAX_VALUES_PER_TAG=0
+      - INFLUXDB_LOGGING_LEVEL=debug
+      - INFLUXDB_DATA_MAX_INDEX_LOG_FILE_SIZE=512m
+      - INFLUXDB_RETENTION_ENABLED=true
+      - INFLUXDB_RETENTION_CHECK_INTERVAL=1440m0s
+      - INFLUXDB_SHARD_PRECREATION_ENABLED=true
+    volumes:
+      - /nfs/swarm/influxDB/General:/var/lib/influxdb
+    ports:
+      - 8186:8086
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+
+  influx-ntopng:
+    image: influxdb:1.7.7
+    networks:
+      - net
+    environment:
+      - INFLUXDB_DB=ntopng
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+      - INFLUXDB_UDP_ENABLED=true
+      - INFLUXDB_DATA_MAX_VALUES_PER_TAG=0
+      - INFLUXDB_LOGGING_LEVEL=info
+      - INFLUXDB_DATA_MAX_INDEX_LOG_FILE_SIZE=256m
+      - INFLUXDB_RETENTION_ENABLED=true
+      - INFLUXDB_RETENTION_CHECK_INTERVAL=1440m0s
+      - INFLUXDB_SHARD_PRECREATION_ENABLED=true
+    volumes:
+      - /nfs/swarm/influxDB/ntopng:/var/lib/influxdb
+    ports:
+      - 8187:8086
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+
+  influx-pfSense:
+    image: influxdb:1.7.7
+    networks:
+      - net
+    environment:
+      - INFLUXDB_DB=pfSense
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+      - INFLUXDB_DATA_MAX_VALUES_PER_TAG=0
+      - INFLUXDB_RETENTION_ENABLED=true
+      - INFLUXDB_RETENTION_CHECK_INTERVAL=1440m0s
+      - INFLUXDB_SHARD_PRECREATION_ENABLED=true
+    volumes:
+      - /nfs/swarm/influxDB/pfSense:/var/lib/influxdb
+    ports:
+      - 8084:8086
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+
+  influxSNMP:
+    image: influxdb:1.7.7
+    networks:
+      - net
+    environment:
+      - INFLUXDB_DB=grafana
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+      - INFLUXDB_DATA_MAX_VALUES_PER_TAG=0
+      - INFLUXDB_RETENTION_ENABLED=true
+      - INFLUXDB_RETENTION_CHECK_INTERVAL=1440m0s
+      - INFLUXDB_SHARD_PRECREATION_ENABLED=true
+    volumes:
+      - /nfs/swarm/influxDB/SNMP:/var/lib/influxdb
+    ports:
+      - 8086:8086
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+
+## Data collection ##
+  telegrafSNMP:
+    image: nuntz/telegraf-snmp
+    depends_on:
+      - influxSNMP
+    networks:
+      - net
+    volumes:
+      - type: bind
+        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafSNMP/mibs
+        target: /root/.snmp/mibs
+      - type: bind
+        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafSNMP/telegraf
+        target: /etc/telegraf
+    deploy:
+      placement:
+        constraints:
+          - node.role != manager
+      resources:
+        limits:
+          memory: 128M
+
+  telegraf-OWM:
+    image: telegraf:1.14
+    depends_on:
+      - influx-General
+    networks:
+      - net
+    volumes:
+      - type: bind
+        source: /nfs/swarm/dockerfiles/spyGlass/spyGlass-telegrafOWM/telegraf
+        target: /etc/telegraf
+    deploy:
+      placement:
+        constraints:
+          - node.role != manager
+
+  unifi-poller:
+    image: golift/unifi-poller:stable
+    networks:
+      - net
+    environment:
+      - UP_UNIFI_DEFAULT_URL=https://10.27.200.50:8443
+      - UP_UNIFI_DEFAULT_USER=unifipoller
+      - UP_UNIFI_DEFAULT_PASS=unifipoller
+      - UP_UNIFI_DEFAULT_SAVE_SITES=true
+      - UP_UNIFI_DEFAULT_SAVE_IDS=true
+      - UP_UNIFI_DEFAULT_SAVE_EVENTS=true
+      - UP_UNIFI_DEFAULT_SAVE_ALARMS=true
+      - UP_UNIFI_DEFAULT_SAVE_ANOMALIES=true
+      - UP_UNIFI_DEFAULT_SITE_0=["all"]
+      - UP_INFLUXDB_URL=http://influx-General:8086
+      - UP_INFLUX_DB=unifi
+      - UP_INFLUXDB_INTERVAL=30s
+      - UP_PROMETHEUS_DISABLE=true
+    deploy:
+      placement:
+        constraints:
+          - node.role != manager
+
+## SEIM ##
+  seim_elastic:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.0
+    secrets:
+      - ES_PASSWORD
+    environment:
+      - node.name=seim_elastic
+      - ELASTIC_PASSWORD__FILE=/var/run/secrets/ES_PASSWORD
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - type: bind
+        source: /nfs/swarm/spyGlassData/seim_es
+        target: /usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - net
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role != manager
+
+  seim_kibana:
+    image: docker.elastic.co/kibana/kibana:7.11.0
+    secrets:
+      - ES_PASSWORD
+    environment:
+      - ELASTICSEARCH_URL=http://seim_elastic:9200
+      - ELASTICSEARCH_HOSTS=http://seim_elastic:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=/var/run/secrets/ES_PASSWORD
+    volumes:
+      - type: bind
+        source: /nfs/swarm/spyGlassData/seim_kibana
+        target: /usr/share/kibana/data
+    ports:
+      - 5601:5601
+    networks:
+      - net
+    deploy:
+      mode: replicated
+      replicas: 1
